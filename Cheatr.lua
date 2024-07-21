@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local config = {
     savedPosition = nil,
@@ -300,6 +301,16 @@ local function stopFollowing()
     end
 end
 
+-- Функция телепортации по клику мыши
+local function teleportToMouse()
+    local character = Players.LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local mouse = Players.LocalPlayer:GetMouse()
+        local targetPosition = mouse.Hit.p
+        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+    end
+end
+
 -- Обработчик команд
 local function handleCommand(command)
     local args = command:split(" ")
@@ -363,4 +374,11 @@ end
 -- Подключаем обработчик команд к чату
 Players.LocalPlayer.Chatted:Connect(function(message)
     handleCommand(message)
+end)
+
+-- Подключаем обработчик нажатия клавиши Z для телепортации к курсору мыши
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Z then
+        teleportToMouse()
+    end
 end)
