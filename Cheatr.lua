@@ -13,7 +13,7 @@ local config = {
     flyVelocity = 50, -- Скорость полета
     standing = false, -- Переменная для отслеживания состояния стояния
     attachMotor = nil,
-    targetPlayerName = nil,
+    targetPlayerName = nil, -- Имя целевого игрока
     controlledPlayer = nil, -- Игрок, управление которым взято на себя
     originalControl = nil, -- Оригинальное управление
     islandPart = nil, -- Переменная для хранения острова
@@ -70,7 +70,7 @@ local function teleportToPlayer(playerNamePart)
         local character = Players.LocalPlayer.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             -- Телепортируем локального игрока к целевому игроку
-            character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+            character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0) -- Добавляем небольшой отступ вверх
         end
     end
 end
@@ -262,7 +262,8 @@ local function displayHelp()
         "f.afk - Enable AFK mode.",
         "f.help - Display this help message.",
         "f.follow <player> - Follow the specified player.",
-        "f.unfollow - Stop following."
+        "f.unfollow - Stop following.",
+        "f.reset - Reset the player to their original state."
     }
     local message = table.concat(commands, "\n")
     SendChatMessage(message, Enum.ChatColor.Green)
@@ -307,7 +308,29 @@ local function teleportToMouse()
     if character and character:FindFirstChild("HumanoidRootPart") then
         local mouse = Players.LocalPlayer:GetMouse()
         local targetPosition = mouse.Hit.p
-        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+        -- Телепортируем игрока с небольшой задержкой вверх, чтобы избежать встраивания в объекты
+        character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 5, 0))
+    end
+end
+
+-- Функция сброса игрока
+local function resetPlayer()
+    local character = Players.LocalPlayer.Character
+    if character and config.originalCameraCFrame then
+        -- Сброс позиции и состояния игрока
+        character.HumanoidRootPart.CFrame = config.originalCameraCFrame
+        disableNoclip()
+        disableInvisibility()
+        disableAFK()
+        disableInfJump()
+        setSpeed(16) -- Восстанавливаем стандартную скорость
+        -- Очистка сохраненной позиции и острова
+        if config.islandPart then
+            removeIsland()
+        end
+        SendChatMessage("Player reset to original state.", Enum.ChatColor.Green)
+    else
+        SendChatMessage("Unable to reset player. Original state not found.", Enum.ChatColor.Red)
     end
 end
 
@@ -366,6 +389,8 @@ local function handleCommand(command)
         startFollowing(args[2])
     elseif cmd == "f.unfollow" then
         stopFollowing()
+    elseif cmd == "f.reset" then
+        resetPlayer()
     else
         SendChatMessage("Unknown command. Use 'f.help' for a list of commands.", Enum.ChatColor.Red)
     end
