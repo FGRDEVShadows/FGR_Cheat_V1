@@ -248,6 +248,8 @@ local function displayHelp()
     local commands = {
         "f.save - Save your current position.",
         "f.comeback - Return to the saved position.",
+        "f.savepoint - Save your current position (alias for f.save).",
+        "f.comeback - Return to the saved position (alias for f.comeback).",
         "f.tp <player> - Teleport to the specified player.",
         "f.island - Create an island and teleport to it.",
         "f.back - Remove the island and return to your previous position.",
@@ -303,7 +305,7 @@ local function handleCommand(command)
     local args = command:split(" ")
     local cmd = args[1]
     
-    if cmd == "f.save" then
+    if cmd == "f.save" or cmd == "f.savepoint" then
         savePoint()
         SendChatMessage("Position saved.", Enum.ChatColor.Green)
     elseif cmd == "f.comeback" then
