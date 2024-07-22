@@ -4,25 +4,26 @@ local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting") -- Добавляем службу Lighting для управления освещением
 
 local config = {
     savedPosition = nil,
     originalCameraCFrame = nil,
     cameraFollowConnection = nil,
     flying = false,
-    flyVelocity = 50, -- Скорость полета
-    standing = false, -- Переменная для отслеживания состояния стояния
+    flyVelocity = 50,
+    standing = false,
     attachMotor = nil,
     targetPlayerName = nil,
-    controlledPlayer = nil, -- Игрок, управление которым взято на себя
-    originalControl = nil, -- Оригинальное управление
-    islandPart = nil, -- Переменная для хранения острова
-    isOnIsland = false, -- Переменная для отслеживания нахождения на острове
-    afkConnection = nil, -- Переменная для хранения подключения к событию
-    noclipConnection = nil, -- Переменная для хранения состояния noclip
-    invisibilityConnection = nil, -- Переменная для хранения состояния невидимости
-    followConnection = nil, -- Переменная для хранения подключения к событию следования
-    infJumpActive = false -- Переменная для отслеживания состояния бесконечного прыжка
+    controlledPlayer = nil,
+    originalControl = nil,
+    islandPart = nil,
+    isOnIsland = false,
+    afkConnection = nil,
+    jumpPower = 50,
+    infJumpActive = false,
+    targetPlayer = nil,
+    originalLightingSettings = nil, -- Добавляем переменную для хранения начальных настроек освещения
 }
 
 -- Функция поиска игрока по части имени
@@ -33,6 +34,20 @@ local function findPlayerByName(namePart)
         end
     end
     return nil
+end
+
+-- Функция отправки сообщения в чат от имени всех игроков
+local function sayToAll(message)
+    local ChatService = game:GetService("Chat")
+    for _, player in ipairs(Players:GetPlayers()) do
+        local success, err = pcall(function()
+            ChatService:Chat(player.Character.HumanoidRootPart, message, Enum.ChatColor.White)
+        end)
+        
+        if not success then
+            warn("Failed to send chat message from player " .. player.Name .. ": " .. err)
+        end
+    end
 end
 
 -- Функция отправки сообщения в чат
@@ -51,7 +66,7 @@ end
 local function savePoint()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        config.savedPosition = character.HumanoidRootPart.CFrame -- Сохраняем CFrame для точности
+        config.savedPosition = character.HumanoidRootPart.CFrame
     end
 end
 
@@ -69,7 +84,6 @@ local function teleportToPlayer(playerNamePart)
     if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local character = Players.LocalPlayer.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
-            -- Телепортируем локального игрока к целевому игроку
             character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
         end
     end
@@ -79,17 +93,16 @@ end
 local function createIsland()
     if not config.islandPart then
         config.islandPart = Instance.new("Part")
-        config.islandPart.Size = Vector3.new(50, 50, 50) -- Размер острова
-        config.islandPart.Position = Vector3.new(5000, -50, 5000) -- Позиция острова за пределами карты
+        config.islandPart.Size = Vector3.new(50, 50, 50)
+        config.islandPart.Position = Vector3.new(5000, -50, 5000)
         config.islandPart.Anchored = true
         config.islandPart.Parent = Workspace
 
-        -- Задержка перед телепортацией
         wait(2)
 
         local character = Players.LocalPlayer.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
-            character.HumanoidRootPart.CFrame = config.islandPart.CFrame + Vector3.new(0, 10, 0) -- Телепортируем игрока на остров
+            character.HumanoidRootPart.CFrame = config.islandPart.CFrame + Vector3.new(0, 10, 0)
             config.isOnIsland = true
         end
     end
@@ -102,13 +115,11 @@ local function removeIsland()
         config.islandPart = nil
         config.isOnIsland = false
 
-        -- Телепортируем игрока обратно на сохраненную позицию или исходную позицию
         local character = Players.LocalPlayer.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             if config.savedPosition then
                 character.HumanoidRootPart.CFrame = config.savedPosition
             else
-                -- Если сохраненная позиция отсутствует, можно телепортировать игрока на стандартную позицию
                 character.HumanoidRootPart.CFrame = CFrame.new(0, 10, 0)
             end
         end
@@ -123,10 +134,11 @@ local function setSpeed(value)
     end
 end
 
--- Функция установки силы прыжка (переименованная функция)
-local function setInfJump(value)
+-- Функция установки силы прыжка
+local function setJumpPower(value)
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("Humanoid") then
+        config.jumpPower = value
         character.Humanoid.JumpPower = value
     end
 end
@@ -150,79 +162,6 @@ local function disableInfJump()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("Humanoid") then
         config.infJumpActive = false
-    end
-end
-
--- Функция включения режима Noclip
-local function enableNoclip()
-    local character = Players.LocalPlayer.Character
-    if character then
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-        config.noclipConnection = RunService.Stepped:Connect(function()
-            for _, part in ipairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        end)
-    end
-end
-
--- Функция отключения режима Noclip
-local function disableNoclip()
-    local character = Players.LocalPlayer.Character
-    if character then
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
-        end
-        if config.noclipConnection then
-            config.noclipConnection:Disconnect()
-            config.noclipConnection = nil
-        end
-    end
-end
-
--- Функция активации невидимости
-local function enableInvisibility()
-    local character = Players.LocalPlayer.Character
-    if character then
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.Transparency = 1
-                part.CanCollide = false
-            end
-        end
-        config.invisibilityConnection = RunService.RenderStepped:Connect(function()
-            for _, part in ipairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.Transparency = 1
-                    part.CanCollide = false
-                end
-            end
-        end)
-    end
-end
-
--- Функция деактивации невидимости
-local function disableInvisibility()
-    local character = Players.LocalPlayer.Character
-    if character then
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.Transparency = 0
-                part.CanCollide = true
-            end
-        end
-        if config.invisibilityConnection then
-            config.invisibilityConnection:Disconnect()
-            config.invisibilityConnection = nil
-        end
     end
 end
 
@@ -255,50 +194,18 @@ local function displayHelp()
         "f.island - Create an island and teleport to it.",
         "f.back - Remove the island and return to your previous position.",
         "f.speed <value> - Set your walk speed.",
-        "f.infjump <value> - Set your jump power and enable infinite jump.",
-        "f.noclip - Enable noclip mode.",
-        "f.invis - Enable invisibility.",
-        "f.visible - Disable invisibility.",
+        "f.jump <value> - Set your jump power and enable infinite jump.",
         "f.afk - Enable AFK mode.",
+        "f.reset - Set your health to 0.",
+        "f.spectate <player> - Move your camera to the specified player's position.",
+        "f.unspectate - Return your camera to its original position.",
         "f.help - Display this help message.",
-        "f.follow <player> - Follow the specified player.",
-        "f.unfollow - Stop following."
+        "f.say <message> - Send a message to the chat from all players.",
+        "f.night - Change the environment to nighttime.",
+        "f.light - Return the environment to its initial state."
     }
     local message = table.concat(commands, "\n")
     SendChatMessage(message, Enum.ChatColor.Green)
-end
-
--- Функция следования за игроком
-local function startFollowing(playerNamePart)
-    local targetPlayer = findPlayerByName(playerNamePart)
-    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        if config.followConnection then
-            config.followConnection:Disconnect()
-        end
-
-        config.targetPlayerName = targetPlayer.Name
-        config.followConnection = RunService.RenderStepped:Connect(function()
-            local character = Players.LocalPlayer.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
-            end
-        end)
-        SendChatMessage("Now following " .. targetPlayer.Name, Enum.ChatColor.Yellow)
-    else
-        SendChatMessage("Player not found.", Enum.ChatColor.Red)
-    end
-end
-
--- Функция прекращения следования за игроком
-local function stopFollowing()
-    if config.followConnection then
-        config.followConnection:Disconnect()
-        config.followConnection = nil
-        config.targetPlayerName = nil
-        SendChatMessage("Stopped following.", Enum.ChatColor.Yellow)
-    else
-        SendChatMessage("Not currently following anyone.", Enum.ChatColor.Red)
-    end
 end
 
 -- Функция телепортации по клику мыши
@@ -311,11 +218,78 @@ local function teleportToMouse()
     end
 end
 
+-- Функция сброса здоровья игрока
+local function resetHealth()
+    local character = Players.LocalPlayer.Character
+    if character and character:FindFirstChild("Humanoid") then
+        character.Humanoid.Health = 0
+    end
+end
+
+-- Функция активации режима спекейт
+local function spectatePlayer(playerNamePart)
+    local targetPlayer = findPlayerByName(playerNamePart)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if not config.originalCameraCFrame then
+            config.originalCameraCFrame = Workspace.CurrentCamera.CFrame
+        end
+        Workspace.CurrentCamera.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+        config.targetPlayer = targetPlayer
+    end
+end
+
+-- Функция деактивации режима спекейт
+local function unspectatePlayer()
+    if config.originalCameraCFrame then
+        Workspace.CurrentCamera.CFrame = config.originalCameraCFrame
+        config.originalCameraCFrame = nil
+        config.targetPlayer = nil
+    end
+end
+
+-- Функция установки ночного времени
+local function setNightMode()
+    if not config.originalLightingSettings then
+        -- Сохраняем начальные настройки освещения
+        config.originalLightingSettings = {
+            ClockTime = Lighting.ClockTime,
+            Ambient = Lighting.Ambient,
+            OutdoorAmbient = Lighting.OutdoorAmbient,
+            Brightness = Lighting.Brightness,
+            FogColor = Lighting.FogColor,
+            FogEnd = Lighting.FogEnd
+        }
+    end
+
+    -- Устанавливаем ночные настройки
+    Lighting.ClockTime = 0 -- Устанавливаем время суток на 00:00
+    Lighting.Ambient = Color3.fromRGB(30, 30, 30) -- Устанавливаем темный амбиент
+    Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 20) -- Устанавливаем темное окружение
+    Lighting.Brightness = 2 -- Уменьшаем яркость
+    Lighting.FogColor = Color3.fromRGB(0, 0, 0) -- Устанавливаем цвет тумана на черный
+    Lighting.FogEnd = 500 -- Устанавливаем расстояние тумана
+end
+
+-- Функция возврата начальных настроек освещения
+local function setLightMode()
+    if config.originalLightingSettings then
+        -- Восстанавливаем начальные настройки освещения
+        Lighting.ClockTime = config.originalLightingSettings.ClockTime
+        Lighting.Ambient = config.originalLightingSettings.Ambient
+        Lighting.OutdoorAmbient = config.originalLightingSettings.OutdoorAmbient
+        Lighting.Brightness = config.originalLightingSettings.Brightness
+        Lighting.FogColor = config.originalLightingSettings.FogColor
+        Lighting.FogEnd = config.originalLightingSettings.FogEnd
+
+        -- Очищаем сохраненные настройки
+        config.originalLightingSettings = nil
+    end
+end
+
 -- Обработчик команд
-local function handleCommand(command)
-    local args = command:split(" ")
-    local cmd = args[1]
-    
+local function handleCommand(message)
+    local args = message:split(" ")
+    local cmd = args[1]:lower()
     if cmd == "f.save" or cmd == "f.savepoint" then
         savePoint()
         SendChatMessage("Position saved.", Enum.ChatColor.Green)
@@ -327,10 +301,10 @@ local function handleCommand(command)
         SendChatMessage("Teleported to " .. args[2], Enum.ChatColor.Green)
     elseif cmd == "f.island" then
         createIsland()
-        SendChatMessage("Island created.", Enum.ChatColor.Green)
+        SendChatMessage("Island created and player teleported to it.", Enum.ChatColor.Green)
     elseif cmd == "f.back" then
         removeIsland()
-        SendChatMessage("Island removed and returned to saved position.", Enum.ChatColor.Green)
+        SendChatMessage("Returned to previous position.", Enum.ChatColor.Green)
     elseif cmd == "f.speed" and args[2] then
         local value = tonumber(args[2])
         if value then
@@ -339,33 +313,39 @@ local function handleCommand(command)
         else
             SendChatMessage("Invalid speed value.", Enum.ChatColor.Red)
         end
-    elseif cmd == "f.infjump" and args[2] then
+    elseif cmd == "f.jump" and args[2] then
         local value = tonumber(args[2])
         if value then
-            setInfJump(value)
+            setJumpPower(value)
             enableInfJump()
             SendChatMessage("Infinite jump enabled with jump power " .. value, Enum.ChatColor.Green)
         else
             SendChatMessage("Invalid jump power value.", Enum.ChatColor.Red)
         end
-    elseif cmd == "f.noclip" then
-        enableNoclip()
-        SendChatMessage("Noclip mode enabled.", Enum.ChatColor.Green)
-    elseif cmd == "f.invis" then
-        enableInvisibility()
-        SendChatMessage("Invisibility enabled.", Enum.ChatColor.Green)
-    elseif cmd == "f.visible" then
-        disableInvisibility()
-        SendChatMessage("Invisibility disabled.", Enum.ChatColor.Green)
     elseif cmd == "f.afk" then
         enableAFK()
         SendChatMessage("AFK mode enabled.", Enum.ChatColor.Green)
+    elseif cmd == "f.reset" then
+        resetHealth()
+        SendChatMessage("Player health set to 0.", Enum.ChatColor.Green)
+    elseif cmd == "f.spectate" and args[2] then
+        spectatePlayer(args[2])
+        SendChatMessage("Spectating player " .. args[2], Enum.ChatColor.Green)
+    elseif cmd == "f.unspectate" then
+        unspectatePlayer()
+        SendChatMessage("Stopped spectating.", Enum.ChatColor.Green)
+    elseif cmd == "f.say" and args[2] then
+        local message = table.concat(args, " ", 2)
+        sayToAll(message)
+        SendChatMessage("Message sent to all players: " .. message, Enum.ChatColor.Green)
+    elseif cmd == "f.night" then
+        setNightMode()
+        SendChatMessage("Environment changed to nighttime.", Enum.ChatColor.Green)
+    elseif cmd == "f.light" then
+        setLightMode()
+        SendChatMessage("Environment returned to initial state.", Enum.ChatColor.Green)
     elseif cmd == "f.help" then
         displayHelp()
-    elseif cmd == "f.follow" and args[2] then
-        startFollowing(args[2])
-    elseif cmd == "f.unfollow" then
-        stopFollowing()
     else
         SendChatMessage("Unknown command. Use 'f.help' for a list of commands.", Enum.ChatColor.Red)
     end
