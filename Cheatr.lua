@@ -4,7 +4,7 @@ local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting") -- Добавляем службу Lighting для управления освещением
+local Lighting = game:GetService("Lighting")
 
 local config = {
     savedPosition = nil,
@@ -21,9 +21,8 @@ local config = {
     isOnIsland = false,
     afkConnection = nil,
     jumpPower = 50,
-    infJumpActive = false,
     targetPlayer = nil,
-    originalLightingSettings = nil, -- Добавляем переменную для хранения начальных настроек освещения
+    originalLightingSettings = nil, -- Переменная для хранения начальных настроек освещения
 }
 
 -- Функция поиска игрока по части имени
@@ -144,12 +143,11 @@ local function setJumpPower(value)
 end
 
 -- Функция активации бесконечного прыжка
-local function enableInfJump()
+local function enableJumpPower()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("Humanoid") then
-        config.infJumpActive = true
         character.Humanoid.Jumping:Connect(function()
-            if config.infJumpActive then
+            if config.jumpPower > 0 then
                 character.Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
                 character.Humanoid:ChangeState(Enum.HumanoidStateType.Seated)
             end
@@ -158,10 +156,10 @@ local function enableInfJump()
 end
 
 -- Функция отключения бесконечного прыжка
-local function disableInfJump()
+local function disableJumpPower()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("Humanoid") then
-        config.infJumpActive = false
+        config.jumpPower = 0
     end
 end
 
@@ -188,13 +186,11 @@ local function displayHelp()
     local commands = {
         "f.save - Save your current position.",
         "f.comeback - Return to the saved position.",
-        "f.savepoint - Save your current position (alias for f.save).",
-        "f.comeback - Return to the saved position (alias for f.comeback).",
         "f.tp <player> - Teleport to the specified player.",
         "f.island - Create an island and teleport to it.",
         "f.back - Remove the island and return to your previous position.",
         "f.speed <value> - Set your walk speed.",
-        "f.jump <value> - Set your jump power and enable infinite jump.",
+        "f.jump <value> - Set your jump power.",
         "f.afk - Enable AFK mode.",
         "f.reset - Set your health to 0.",
         "f.spectate <player> - Move your camera to the specified player's position.",
@@ -213,7 +209,7 @@ local function teleportToMouse()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         local mouse = Players.LocalPlayer:GetMouse()
-        local targetPosition = mouse.Hit.p
+        local targetPosition = mouse.Hit.p + Vector3.new(0, 10, 0) -- Телепортация с небольшим подъемом
         character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
     end
 end
@@ -317,8 +313,8 @@ local function handleCommand(message)
         local value = tonumber(args[2])
         if value then
             setJumpPower(value)
-            enableInfJump()
-            SendChatMessage("Infinite jump enabled with jump power " .. value, Enum.ChatColor.Green)
+            enableJumpPower()
+            SendChatMessage("Jump power set to " .. value, Enum.ChatColor.Green)
         else
             SendChatMessage("Invalid jump power value.", Enum.ChatColor.Red)
         end
