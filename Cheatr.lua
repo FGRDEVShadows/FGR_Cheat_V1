@@ -209,7 +209,7 @@ local function teleportToMouse()
     local character = Players.LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         local mouse = Players.LocalPlayer:GetMouse()
-        local targetPosition = mouse.Hit.p + Vector3.new(0, 10, 0) -- Телепортация с небольшим подъемом
+        local targetPosition = mouse.Hit.p + Vector3.new(0, 4, 0) -- Телепортация с небольшим подъемом
         character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
     end
 end
@@ -261,7 +261,7 @@ local function setNightMode()
     Lighting.ClockTime = 0 -- Устанавливаем время суток на 00:00
     Lighting.Ambient = Color3.fromRGB(30, 30, 30) -- Устанавливаем темный амбиент
     Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 20) -- Устанавливаем темное окружение
-    Lighting.Brightness = 1 -- Уменьшаем яркость
+    Lighting.Brightness = 3 -- Уменьшаем яркость
     Lighting.FogColor = Color3.fromRGB(0, 0, 0) -- Устанавливаем цвет тумана на черный
     Lighting.FogEnd = 0 -- Устанавливаем расстояние тумана
 end
