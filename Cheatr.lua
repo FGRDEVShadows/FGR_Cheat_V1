@@ -261,9 +261,9 @@ local function setNightMode()
     Lighting.ClockTime = 0 -- Устанавливаем время суток на 00:00
     Lighting.Ambient = Color3.fromRGB(30, 30, 30) -- Устанавливаем темный амбиент
     Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 20) -- Устанавливаем темное окружение
-    Lighting.Brightness = 3 -- Уменьшаем яркость
+    Lighting.Brightness = 2 -- Уменьшаем яркость
     Lighting.FogColor = Color3.fromRGB(0, 0, 0) -- Устанавливаем цвет тумана на черный
-    Lighting.FogEnd = 0 -- Устанавливаем расстояние тумана
+    Lighting.FogEnd = 1000 -- Устанавливаем расстояние тумана
 end
 
 -- Функция возврата начальных настроек освещения
