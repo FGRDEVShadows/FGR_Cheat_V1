@@ -22,7 +22,7 @@ local config = {
     afkConnection = nil,
     jumpPower = 50,
     targetPlayer = nil,
-    originalLightingSettings = nil, -- Переменная для хранения начальных настроек освещения
+    originalLightingSettings = nil,
 }
 
 -- Функция поиска игрока по части имени
@@ -127,9 +127,11 @@ end
 
 -- Функция установки скорости
 local function setSpeed(value)
-    local character = Players.LocalPlayer.Character
-    if character and character:FindFirstChild("Humanoid") then
-        character.Humanoid.WalkSpeed = value
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character and character:FindFirstChild("Humanoid") then
+            character.Humanoid.WalkSpeed = value
+        end
     end
 end
 
@@ -243,7 +245,7 @@ local function unspectatePlayer()
     end
 end
 
--- Функция установки ночного времени
+-- Функция установки ночного режима
 local function setNightMode()
     if not config.originalLightingSettings then
         -- Сохраняем начальные настройки освещения
@@ -259,15 +261,15 @@ local function setNightMode()
 
     -- Устанавливаем ночные настройки
     Lighting.ClockTime = 0 -- Устанавливаем время суток на 00:00
-    Lighting.Ambient = Color3.fromRGB(30, 30, 30) -- Устанавливаем темный амбиент
-    Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 20) -- Устанавливаем темное окружение
-    Lighting.Brightness = 2 -- Уменьшаем яркость
-    Lighting.FogColor = Color3.fromRGB(0, 0, 0) -- Устанавливаем цвет тумана на черный
-    Lighting.FogEnd = 1000 -- Устанавливаем расстояние тумана
+    Lighting.Ambient = Color3.fromRGB(60, 60, 60) -- Устанавливаем менее темный амбиент
+    Lighting.OutdoorAmbient = Color3.fromRGB(40, 40, 40) -- Устанавливаем менее темное окружение
+    Lighting.Brightness = 4 -- Увеличиваем яркость
+    Lighting.FogColor = Color3.fromRGB(30, 30, 30) -- Устанавливаем цвет тумана на более серый
+    Lighting.FogEnd = 500 -- Устанавливаем расстояние тумана
 end
 
--- Функция возврата начальных настроек освещения
-local function setLightMode()
+-- Функция возврата освещения в начальное состояние
+local function setDayMode()
     if config.originalLightingSettings then
         -- Восстанавливаем начальные настройки освещения
         Lighting.ClockTime = config.originalLightingSettings.ClockTime
@@ -282,79 +284,81 @@ local function setLightMode()
     end
 end
 
--- Обработчик команд
-local function handleCommand(message)
-    local args = message:split(" ")
-    local cmd = args[1]:lower()
-    if cmd == "f.save" or cmd == "f.savepoint" then
+-- Основной обработчик команд
+local function onCommand(command, ...)
+    if command == "f.save" then
         savePoint()
         SendChatMessage("Position saved.", Enum.ChatColor.Green)
-    elseif cmd == "f.comeback" then
+    elseif command == "f.comeback" then
         comeBack()
         SendChatMessage("Returned to saved position.", Enum.ChatColor.Green)
-    elseif cmd == "f.tp" and args[2] then
-        teleportToPlayer(args[2])
-        SendChatMessage("Teleported to " .. args[2], Enum.ChatColor.Green)
-    elseif cmd == "f.island" then
+    elseif command == "f.tp" then
+        local playerName = ...
+        teleportToPlayer(playerName)
+        SendChatMessage("Teleported to " .. playerName, Enum.ChatColor.Green)
+    elseif command == "f.island" then
         createIsland()
-        SendChatMessage("Island created and player teleported to it.", Enum.ChatColor.Green)
-    elseif cmd == "f.back" then
+        SendChatMessage("Island created and teleported to it.", Enum.ChatColor.Green)
+    elseif command == "f.back" then
         removeIsland()
-        SendChatMessage("Returned to previous position.", Enum.ChatColor.Green)
-    elseif cmd == "f.speed" and args[2] then
-        local value = tonumber(args[2])
-        if value then
-            setSpeed(value)
-            SendChatMessage("Speed set to " .. value, Enum.ChatColor.Green)
+        SendChatMessage("Island removed and returned to previous position.", Enum.ChatColor.Green)
+    elseif command == "f.speed" then
+        local speed = tonumber(...)
+        if speed then
+            setSpeed(speed)
+            SendChatMessage("Speed set to " .. speed, Enum.ChatColor.Green)
         else
             SendChatMessage("Invalid speed value.", Enum.ChatColor.Red)
         end
-    elseif cmd == "f.jump" and args[2] then
-        local value = tonumber(args[2])
-        if value then
-            setJumpPower(value)
-            enableJumpPower()
-            SendChatMessage("Jump power set to " .. value, Enum.ChatColor.Green)
+    elseif command == "f.jump" then
+        local jumpPower = tonumber(...)
+        if jumpPower then
+            setJumpPower(jumpPower)
+            SendChatMessage("Jump power set to " .. jumpPower, Enum.ChatColor.Green)
         else
             SendChatMessage("Invalid jump power value.", Enum.ChatColor.Red)
         end
-    elseif cmd == "f.afk" then
+    elseif command == "f.afk" then
         enableAFK()
         SendChatMessage("AFK mode enabled.", Enum.ChatColor.Green)
-    elseif cmd == "f.reset" then
+    elseif command == "f.reset" then
         resetHealth()
-        SendChatMessage("Player health set to 0.", Enum.ChatColor.Green)
-    elseif cmd == "f.spectate" and args[2] then
-        spectatePlayer(args[2])
-        SendChatMessage("Spectating player " .. args[2], Enum.ChatColor.Green)
-    elseif cmd == "f.unspectate" then
+        SendChatMessage("Health reset to 0.", Enum.ChatColor.Green)
+    elseif command == "f.spectate" then
+        local playerName = ...
+        spectatePlayer(playerName)
+        SendChatMessage("Spectating player " .. playerName, Enum.ChatColor.Green)
+    elseif command == "f.unspectate" then
         unspectatePlayer()
-        SendChatMessage("Stopped spectating.", Enum.ChatColor.Green)
-    elseif cmd == "f.say" and args[2] then
-        local message = table.concat(args, " ", 2)
-        sayToAll(message)
-        SendChatMessage("Message sent to all players: " .. message, Enum.ChatColor.Green)
-    elseif cmd == "f.night" then
-        setNightMode()
-        SendChatMessage("Environment changed to nighttime.", Enum.ChatColor.Green)
-    elseif cmd == "f.light" then
-        setLightMode()
-        SendChatMessage("Environment returned to initial state.", Enum.ChatColor.Green)
-    elseif cmd == "f.help" then
+        SendChatMessage("Unspectating.", Enum.ChatColor.Green)
+    elseif command == "f.help" then
         displayHelp()
+    elseif command == "f.say" then
+        local message = ...
+        sayToAll(message)
+    elseif command == "f.night" then
+        setNightMode()
+        SendChatMessage("Environment set to nighttime.", Enum.ChatColor.Green)
+    elseif command == "f.light" then
+        setDayMode()
+        SendChatMessage("Environment returned to initial state.", Enum.ChatColor.Green)
     else
-        SendChatMessage("Unknown command. Use 'f.help' for a list of commands.", Enum.ChatColor.Red)
+        SendChatMessage("Unknown command.", Enum.ChatColor.Red)
     end
 end
 
--- Подключаем обработчик команд к чату
-Players.LocalPlayer.Chatted:Connect(function(message)
-    handleCommand(message)
-end)
-
--- Подключаем обработчик нажатия клавиши Z для телепортации к курсору мыши
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Z then
+-- Основной цикл обработки ввода
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.Z then
         teleportToMouse()
     end
 end)
+
+-- Обработка сообщений чата
+Players.LocalPlayer.Chatted:Connect(function(message)
+    local args = string.split(message, " ")
+    local command = args[1]
+    table.remove(args, 1)
+    onCommand(command, unpack(args))
+end)
+
